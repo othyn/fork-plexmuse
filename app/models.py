@@ -24,13 +24,21 @@ class PlaylistRequest(BaseModel):
     max_tracks: int = Field(default=50, ge=1, le=200, description="Maximum number of tracks")
 
 
+class Track(BaseModel):
+    """Track model"""
+
+    artist: str
+    title: str
+
+
 class PlaylistResponse(BaseModel):
     """Response model for playlist generation"""
 
     name: str
     track_count: int
-    artists: List[str]
-    id: str | None = None  # Make ID optional
+    tracks: List[Track]
+    id: Optional[str] = None
+    machine_identifier: Optional[str] = None
 
 
 class AIRecommendation(BaseModel):

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-50">
+<html lang="en" class="h-full">
 
 <head>
     <meta charset="UTF-8">
@@ -9,6 +9,7 @@
     <script>
         // Configure Tailwind theme
         tailwind.config = {
+            darkMode: 'media',
             theme: {
                 extend: {
                     colors: {
@@ -20,12 +21,12 @@
     </script>
 </head>
 
-<body class="h-full">
+<body class="h-full bg-gray-50 dark:bg-gray-900">
     <div class="min-h-full">
         <!-- Header -->
-        <header class="bg-white shadow">
+        <header class="bg-white shadow dark:bg-gray-800">
             <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                <h1 class="text-3xl font-bold tracking-tight text-gray-900">Plexmuse</h1>
+                <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Plexmuse</h1>
             </div>
         </header>
 
@@ -33,17 +34,42 @@
         <main>
             <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                 <!-- Playlist Form -->
-                <div class="bg-white shadow sm:rounded-lg">
+                <div class="bg-white shadow sm:rounded-lg dark:bg-gray-800">
                     <div class="px-4 py-5 sm:p-6">
-                        <form id="playlistForm" class="space-y-6">
+                        <form id="playlistForm" class="space-y-6" onsubmit="return false;">
                             <div>
-                                <label for="prompt" class="block text-sm font-medium leading-6 text-gray-900">
+                                <label for="prompt"
+                                    class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-200">
                                     What kind of playlist do you want?
                                 </label>
                                 <div class="mt-2">
                                     <textarea id="prompt" name="prompt" rows="3"
-                                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-plexorange sm:text-sm sm:leading-6"
+                                        class="block w-full rounded-md border-0 px-4 py-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-plexorange dark:bg-gray-700 dark:text-white dark:ring-gray-600 sm:text-sm sm:leading-6"
                                         placeholder="e.g., Energetic workout mix with hip-hop and electronic music"></textarea>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label
+                                    class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-200 mb-2">
+                                    Playlist Length
+                                </label>
+                                <div class="grid grid-cols-3 gap-3">
+                                    <button type="button" data-length="short"
+                                        class="playlist-length-btn rounded-lg border-2 border-gray-300 px-3 py-2 text-sm font-semibold dark:border-gray-600 dark:text-gray-200">
+                                        Short
+                                        <span class="block text-xs text-gray-500 dark:text-gray-400">~30 tracks</span>
+                                    </button>
+                                    <button type="button" data-length="medium"
+                                        class="playlist-length-btn rounded-lg border-2 border-plexorange bg-orange-50 px-3 py-2 text-sm font-semibold dark:bg-orange-900/20 dark:text-gray-200">
+                                        Medium
+                                        <span class="block text-xs text-gray-500 dark:text-gray-400">~60 tracks</span>
+                                    </button>
+                                    <button type="button" data-length="long"
+                                        class="playlist-length-btn rounded-lg border-2 border-gray-300 px-3 py-2 text-sm font-semibold dark:border-gray-600 dark:text-gray-200">
+                                        Long
+                                        <span class="block text-xs text-gray-500 dark:text-gray-400">~120 tracks</span>
+                                    </button>
                                 </div>
                             </div>
 
@@ -61,28 +87,36 @@
                 <div id="loadingState" class="hidden mt-6">
                     <div class="flex items-center justify-center">
                         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-plexorange"></div>
-                        <span class="ml-2 text-sm text-gray-500">Generating your perfect playlist...</span>
+                        <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">Generating your perfect
+                            playlist...</span>
                     </div>
                 </div>
 
                 <!-- Results -->
-                <div id="results" class="hidden mt-6 bg-white shadow sm:rounded-lg">
+                <div id="results" class="hidden mt-6 bg-white shadow sm:rounded-lg dark:bg-gray-800">
                     <div class="px-4 py-5 sm:p-6">
-                        <h2 id="playlistName" class="text-xl font-semibold text-gray-900 mb-4"></h2>
-                        <div class="space-y-4">
-                            <div>
-                                <h3 class="text-sm font-medium text-gray-500">Artists</h3>
-                                <ul id="artistsList" class="mt-2 text-sm text-gray-900"></ul>
-                            </div>
-                            <div>
-                                <h3 class="text-sm font-medium text-gray-500">Tracks</h3>
-                                <p id="trackCount" class="text-sm text-gray-700"></p>
-                            </div>
-                            <div>
-                                <a id="plexLink" href="#" target="_blank" class="text-plexorange hover:text-orange-500">
-                                    Open in Plex →
-                                </a>
-                            </div>
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 id="playlistName" class="text-xl font-semibold text-gray-900 dark:text-white"></h2>
+                            <a id="plexLink" href="#" target="_blank"
+                                class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-plexorange rounded-md hover:bg-orange-500">
+                                Open in Plex
+                                <svg xmlns="http://www.w3.org/2000/svg" class="ml-2 h-4 w-4" viewBox="0 0 20 20"
+                                    fill="currentColor">
+                                    <path
+                                        d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                                    <path
+                                        d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                                </svg>
+                            </a>
+                        </div>
+
+                        <div id="trackCount" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></div>
+
+                        <!-- Tracks List -->
+                        <div class="mt-6">
+                            <ul id="tracksList" class="divide-y divide-gray-200 dark:divide-gray-700">
+                                <!-- Tracks will be inserted here -->
+                            </ul>
                         </div>
                     </div>
                 </div>

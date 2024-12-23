@@ -9,10 +9,10 @@ from typing import List
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.models import Artist, PlaylistRequest, PlaylistResponse
+from app.models import Artist, PlaylistRequest, PlaylistResponse, Track
 
 from .services.llm_service import LLMService
 from .services.plex_service import PlexService
@@ -43,8 +43,21 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def root():
-    """Serve the index.html file"""
-    return FileResponse("static/index.html")
+    """Serve the index.html file with Plex configuration injected"""
+    plex_base_url = os.getenv("PLEX_BASE_URL")
+    plex_token = os.getenv("PLEX_TOKEN")
+
+    with open("static/index.html", "r", encoding="utf-8") as f:
+        html_content = f.read()
+
+    # Inject Plex configuration before closing body tag
+    script_tag = f"""<script>
+        window.plexBaseUrl = "{plex_base_url}";
+        window.plexToken = "{plex_token}";
+    </script>"""
+    html_content = html_content.replace("</body>", f"{script_tag}</body>")
+
+    return HTMLResponse(content=html_content)
 
 
 # Initialize services
@@ -70,7 +83,7 @@ async def get_artists():
 async def create_recommendations(request: PlaylistRequest):
     """Create playlist recommendations"""
     try:
-        # Step 1: Get artist recommendations from cached artists
+        # Step 1: Get artist recommendations
         artists = plex_service.get_all_artists()
         recommended_artists = llm_service.get_artist_recommendations(
             prompt=request.prompt, artists=artists, model=request.model
@@ -96,13 +109,12 @@ async def create_recommendations(request: PlaylistRequest):
             name=playlist_name,
             track_recommendations=track_recommendations,
         )
-        playlist_items = list(playlist.items()) if hasattr(playlist, "items") else []
-
         return PlaylistResponse(
             name=playlist.title,
-            track_count=len(playlist_items),
-            artists=recommended_artists,
+            track_count=len(track_recommendations),
+            tracks=[Track(artist=rec["artist"], title=rec["title"]) for rec in track_recommendations],
             id=str(playlist.ratingKey) if hasattr(playlist, "ratingKey") else None,
+            machine_identifier=plex_service.machine_identifier,
         )
     except Exception as e:
         logger.error("Error creating playlist: %s", str(e))

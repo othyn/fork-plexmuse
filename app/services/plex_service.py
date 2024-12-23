@@ -67,6 +67,7 @@ class PlexService:
         self.base_url = base_url
         self.token = token
         self._server: Optional[PlexServer] = None
+        self.machine_identifier: Optional[str] = None
         self._music_library = None
 
         # Only cache artists
@@ -84,6 +85,8 @@ class PlexService:
             logger.info("Initializing PlexService artist cache...")
             try:
                 self._server = PlexServer(self.base_url, self.token)
+                self.machine_identifier = self._server.machineIdentifier
+
                 self._music_library = self._server.library.section("Music")
 
                 # Load all artists
