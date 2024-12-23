@@ -1,5 +1,5 @@
 """
-Plex GPT Playlist API
+Plexmuse API
 
 This module sets up the FastAPI application for generating AI-powered playlists
 from your Plex music library. It includes configuration for logging, environment
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = FastAPI(
-    title="Plex GPT Playlist API",
+    title="Plexmuse API",
     description="API for generating AI-powered playlists from your Plex music library",
     version="1.0.0",
 )
