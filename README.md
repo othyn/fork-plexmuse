@@ -1,6 +1,6 @@
-# Plex GPT Playlist API 🎶🤖
+# Plexmuse 🎶🤖
 
-Welcome to the **Plex GPT Playlist API**! This project leverages the power of AI to generate personalized playlists from your Plex music library. Whether you're looking for new music recommendations or creating the perfect playlist for any occasion, this API has got you covered.
+Welcome to **Plexmuse**! This project leverages the power of AI to generate personalized playlists from your Plex music library. Whether you're looking for new music recommendations or creating the perfect playlist for any occasion, this API has got you covered.
 
 ## Features ✨
 
@@ -12,8 +12,8 @@ Welcome to the **Plex GPT Playlist API**! This project leverages the power of AI
 
 ### Prerequisites
 
-- Python 3.8+
-- Plex Media Server
+- Python 3
+- Plex Media Server with a Music library
 - OpenAI API Key (for GPT-4)
 - Anthropic API Key (optional, for Claude)
 
@@ -25,9 +25,9 @@ Welcome to the **Plex GPT Playlist API**! This project leverages the power of AI
     cd plexmuse
     ```
 
-2. **Install dependencies**:
+2. **Setup**:
     ```sh
-    pip install -r requirements.txt
+    make all
     ```
 
 3. **Set up environment variables**:
@@ -41,13 +41,34 @@ Welcome to the **Plex GPT Playlist API**! This project leverages the power of AI
 
 ### Running the Application
 
-1. **Start the FastAPI server**:
+You can run the application using the Makefile or directly with Docker.
+
+#### Using the Makefile
+
+1. **Set up and run the application**:
     ```sh
-    uvicorn app.main:app --reload
+    make run
+    ```
+2. **Start**:
+    ```sh
+    make start
     ```
 
-2. **Access the API documentation**:
-    Open your browser and navigate to `http://127.0.0.1:8000/docs` to explore the API endpoints.
+#### Using Docker
+
+1. **Build the Docker image**:
+    ```sh
+    docker compose build
+    ```
+
+2. **Start the Docker container**:
+    ```sh
+    docker compose up
+    ```
+
+### Accessing the API Documentation
+
+Open your browser and navigate to `http://127.0.0.1:8000/docs` to explore the API endpoints.
 
 ## Usage 📖
 
@@ -58,7 +79,7 @@ Send a POST request to `/recommendations` with the following JSON body:
 ```json
 {
     "prompt": "Chill vibes for a rainy day",
-    "model": "gpt-4",
+    "model": "claude",
     "min_tracks": 10,
     "max_tracks": 20
 }
