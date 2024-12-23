@@ -1,158 +1,187 @@
 """
-Plex Service
-
-Provides the PlexService class for interacting with the Plex API.
+Plex Service with artist caching and optimized album loading.
 """
 
 import logging
+from typing import List, Dict, Optional
 from difflib import SequenceMatcher
-from typing import List, Optional
-
-from dotenv import load_dotenv
+from fastapi import FastAPI
 from plexapi.server import PlexServer
-
 from app.models import Artist
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-def get_best_track_match(album_tracks: List[dict], suggested_title: str, threshold: float = 0.6) -> Optional[dict]:
+def normalize_title(title: str) -> str:
+    """Normalize track title for better matching by removing common variations"""
+    # Convert to lowercase
+    title = title.lower()
+    # Remove common suffixes in parentheses
+    if "(" in title:
+        title = title.split("(")[0].strip()
+    # Remove special characters and extra whitespace
+    title = title.replace("'", "").replace(",", "").replace(".", "")
+    return " ".join(title.split())
+
+
+def find_best_track_match(tracks, target_title, threshold=0.85):
     """
-    Find the best matching track from an album using fuzzy string matching.
+    Find best matching track using fuzzy string matching.
 
     Args:
-        album_tracks: List of track dictionaries from Plex
-        suggested_title: The track title suggested by the LLM
-        threshold: Minimum similarity score to consider a match
+        tracks: List of track objects from Plex
+        target_title: Title to match against
+        threshold: Minimum similarity score (0-1) to consider a match
 
     Returns:
-        Best matching track dict or None if no good match found
+        Tuple of (best_match, score) or (None, 0) if no match found
     """
+
+    target_normalized = normalize_title(target_title)
     best_match = None
     best_score = 0
 
-    for track in album_tracks:
-        score = SequenceMatcher(None, track["title"].lower(), suggested_title.lower()).ratio()
+    for track in tracks:
+        track_normalized = normalize_title(track.title)
+
+        # Calculate similarity on normalized titles
+        score = SequenceMatcher(None, track_normalized, target_normalized).ratio()
+
+        # If exact match found after normalization, return immediately
+        if score == 1.0:
+            return track, 1.0
+
         if score > best_score and score >= threshold:
             best_score = score
             best_match = track
 
-    if best_match:
-        logger.debug("Matched '%s' to '%s' with score %s", suggested_title, best_match["title"], best_score)
-    else:
-        logger.debug("No match found for '%s' above threshold %s", suggested_title, threshold)
-
-    return best_match
+    return best_match, best_score
 
 
 class PlexService:
     """
-    A service class for interacting with the Plex API.
+    A service class for interacting with the Plex API with artist caching.
     """
 
     def __init__(self, base_url: str, token: str):
         self.base_url = base_url
         self.token = token
+        self._server: Optional[PlexServer] = None
+        self._music_library = None
 
-    def get_music_library(self):
-        """Get the music library section from Plex"""
-        server = PlexServer(self.base_url, self.token)
-        return server.library.section("Music")
+        # Only cache artists
+        self._artists_cache: Dict[str, Artist] = {}  # key: artist_id -> Artist
+
+    def get_cache_size(self) -> int:
+        """Get the number of artists in the cache"""
+        return len(self._artists_cache)
+
+    def initialize(self, app: FastAPI):
+        """Initialize artist cache on startup"""
+
+        @app.on_event("startup")
+        async def startup_event():
+            logger.info("Initializing PlexService artist cache...")
+            try:
+                self._server = PlexServer(self.base_url, self.token)
+                self._music_library = self._server.library.section("Music")
+
+                # Load all artists
+                artists = self._music_library.search(libtype="artist")
+                for artist in artists:
+                    artist_id = str(artist.ratingKey)
+                    self._artists_cache[artist_id] = Artist(
+                        id=artist_id, name=artist.title, genres=[genre.tag for genre in getattr(artist, "genres", [])]
+                    )
+
+                logger.info("Cached %d artists", len(self._artists_cache))
+
+            except Exception as e:
+                logger.error("Failed to initialize Plex cache: %s", str(e))
+                raise
 
     def get_all_artists(self) -> List[Artist]:
-        """Get all artists from the music library"""
-        try:
-            server = PlexServer(self.base_url, self.token)
-            music = server.library.section("Music")
-            artists = music.search(libtype="artist")
-            return [
-                Artist(
-                    id=str(artist.ratingKey),
-                    name=artist.title,
-                    genres=[genre.tag for genre in getattr(artist, "genres", [])],
-                )
-                for artist in artists
-            ]
-        except Exception as e:
-            logger.error("Failed to get artists: %s", str(e))
-            raise
+        """Get all artists from cache"""
+        return list(self._artists_cache.values())
 
-    def get_artist_tracks(self, artist_name: str) -> dict:
-        """Get all albums and tracks for an artist"""
-        server = PlexServer(self.base_url, self.token)
-        music = server.library.section("Music")
+    def get_artists_albums_bulk(self, artist_names: List[str]) -> dict:
+        """Get albums for multiple artists in one go"""
+        if not self._server:
+            self._server = PlexServer(self.base_url, self.token)
 
-        artists = music.search(artist_name, libtype="artist")
-        if not artists:
-            return {}
+        result = {}
+        # Find all matching artists first
+        artist_objects = []
+        for artist_name in artist_names:
+            artist_found = None
+            # First try cache lookup by name
+            for artist in self._artists_cache.values():
+                if artist.name.lower() == artist_name.lower():
+                    # Found in cache, now get the Plex object
+                    matches = self._music_library.search(artist.name, libtype="artist")
+                    if matches:
+                        artist_found = matches[0]
+                        break
 
-        artist = artists[0]
-        albums = []
+            if artist_found:
+                artist_objects.append(artist_found)
+            else:
+                logger.warning("Artist not found: %s", artist_name)
 
-        for album in artist.albums():
-            album_tracks = []
-            for track in album.tracks():
-                album_tracks.append(
-                    {
-                        "title": track.title,
-                        "duration": track.duration,
-                        "track_number": track.trackNumber,
-                        "key": track.key,  # for finding the track later
-                    }
-                )
+        # Now get all albums in one go
+        for artist in artist_objects:
+            albums = []
+            for album in artist.albums():
+                albums.append({"name": album.title, "year": album.year, "track_count": len(album.tracks())})
+            result[artist.title] = albums
 
-            albums.append({"name": album.title, "year": album.year, "tracks": album_tracks})
-
-        return {artist_name: albums}
-
-    def get_artist_albums(self, artist_name: str) -> dict:
-        """Get just album metadata for an artist"""
-        server = PlexServer(self.base_url, self.token)
-        music = server.library.section("Music")
-
-        artists = music.search(artist_name, libtype="artist")
-        if not artists:
-            return {}
-
-        artist = artists[0]
-        albums = []
-
-        for album in artist.albums():
-            albums.append({"name": album.title, "year": album.year, "track_count": len(album.tracks())})
-
-        return {artist_name: albums}
+        return result
 
     def create_curated_playlist(self, name: str, track_recommendations: List[dict]):
         """Create a playlist with fuzzy track matching"""
-        server = PlexServer(self.base_url, self.token)
-        music = server.library.section("Music")
+        if not self._server:
+            self._server = PlexServer(self.base_url, self.token)
 
         matched_tracks = []
+        # Group recommendations by artist for efficiency
+        artist_tracks = {}
         for rec in track_recommendations:
-            # Find the artist first
-            artists = music.search(rec["artist"], libtype="artist")
+            artist_tracks.setdefault(rec["artist"], []).append(rec["title"])
+
+        # Process each artist's tracks in bulk
+        for artist_name, track_titles in artist_tracks.items():
+            artists = self._music_library.search(artist_name, libtype="artist")
             if not artists:
-                logger.warning("Artist not found: %s", rec["artist"])
+                logger.warning("Artist not found: %s", artist_name)
                 continue
 
             artist = artists[0]
-
-            # Search through each album
-            track_found = False
+            # Get all tracks for this artist at once
+            all_tracks = []
             for album in artist.albums():
-                match = get_best_track_match([{"title": t.title, "key": t.key} for t in album.tracks()], rec["title"])
-                if match:
-                    track = music.fetchItem(match["key"])
-                    matched_tracks.append(track)
-                    track_found = True
-                    break
+                all_tracks.extend(album.tracks())
 
-            if not track_found:
-                logger.warning("No matching track found for: %s by %s", rec["title"], rec["artist"])
+            # Match tracks using fuzzy matching
+            for title in track_titles:
+                track, score = find_best_track_match(all_tracks, title)
+                if track:
+                    logger.debug("Matched '%s' to '%s' (score: %.2f)", title, track.title, score)
+                    matched_tracks.append(track)
+                else:
+                    # If no match found for artist, try global search
+                    global_tracks = self._music_library.search(title, libtype="track")
+                    if global_tracks:
+                        track, score = find_best_track_match(global_tracks, title, threshold=0.75)
+                        if track and track.artist().title.lower() == artist_name.lower():
+                            logger.debug("Found track '%s' through global search (score: %.2f)", track.title, score)
+                            matched_tracks.append(track)
+                        else:
+                            logger.warning("No matching track found for: %s by %s", title, artist_name)
+                    else:
+                        logger.warning("No matching track found for: %s by %s", title, artist_name)
 
         if not matched_tracks:
             raise ValueError("No tracks could be matched from recommendations")
 
-        playlist = server.createPlaylist(name, items=matched_tracks)
+        playlist = self._server.createPlaylist(name, items=matched_tracks)
         return playlist

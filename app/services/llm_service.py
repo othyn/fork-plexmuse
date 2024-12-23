@@ -184,7 +184,7 @@ class LLMService:
         try:
             system_prompt = """
             You are a creative assistant.
-            Generate a SINGLE catchy and relevant playlist name based on the following prompt.
+            Generate a SINGLE catchy and relevant playlist name based on the following prompt. Do not wrap in quotes.
             """
 
             response = completion(
@@ -193,7 +193,7 @@ class LLMService:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=10,
+                max_tokens=30,
                 temperature=0.7,
             )
 

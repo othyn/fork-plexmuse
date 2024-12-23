@@ -1,9 +1,5 @@
 """
-Plexmuse API
-
-This module sets up the FastAPI application for generating AI-powered playlists
-from your Plex music library. It includes configuration for logging, environment
-variables, and CORS middleware.
+Plexmuse API with initialization
 """
 
 import logging
@@ -19,7 +15,7 @@ from app.models import Artist, PlaylistRequest, PlaylistResponse
 from .services.llm_service import LLMService
 from .services.plex_service import PlexService
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -41,6 +37,7 @@ app.add_middleware(
 
 # Initialize services
 plex_service = PlexService(base_url=os.getenv("PLEX_BASE_URL"), token=os.getenv("PLEX_TOKEN"))
+plex_service.initialize(app)  # Register startup event
 
 llm_service = LLMService(openai_key=os.getenv("OPENAI_API_KEY"), anthropic_key=os.getenv("ANTHROPIC_API_KEY"))
 
@@ -48,45 +45,35 @@ llm_service = LLMService(openai_key=os.getenv("OPENAI_API_KEY"), anthropic_key=o
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy"}
+    return {"status": "healthy", "cache_size": plex_service.get_cache_size()}
 
 
 @app.get("/artists", response_model=List[Artist])
 async def get_artists():
     """Get all artists from the Plex music library"""
-    try:
-        artists = plex_service.get_all_artists()
-        return artists
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    return plex_service.get_all_artists()
 
 
 @app.post("/recommendations", response_model=PlaylistResponse)
 async def create_recommendations(request: PlaylistRequest):
-    """
-    Create playlist recommendations based on the provided prompt and model.
-
-    Args:
-        request (PlaylistRequest): The request object containing the prompt and model.
-
-    Returns:
-        PlaylistResponse: The response object containing the recommended playlist.
-    """
+    """Create playlist recommendations"""
     try:
-        # Step 1: Get artist recommendations
+        # Step 1: Get artist recommendations from cached artists
         artists = plex_service.get_all_artists()
         recommended_artists = llm_service.get_artist_recommendations(
             prompt=request.prompt, artists=artists, model=request.model
         )
 
-        # Step 2: Get all tracks for recommended artists
-        artist_tracks = {}
-        for artist in recommended_artists:
-            artist_tracks.update(plex_service.get_artist_tracks(artist))
+        # Step 2: Get all recommended artists' albums in one call
+        artist_albums = plex_service.get_artists_albums_bulk(recommended_artists)
 
-        # Step 3: Get specific track recommendations
+        # Step 3: Get track recommendations
         track_recommendations = llm_service.get_track_recommendations(
-            prompt=request.prompt, artist_tracks=artist_tracks, model=request.model
+            prompt=request.prompt,
+            artist_tracks=artist_albums,
+            model=request.model,
+            min_tracks=request.min_tracks,
+            max_tracks=request.max_tracks,
         )
 
         # Step 4: Generate playlist name
