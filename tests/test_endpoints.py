@@ -23,7 +23,7 @@ def mock_env():
         yield
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_plex_service():
     """Mock PlexService methods"""
     with patch("app.main.plex_service") as mock:
@@ -34,6 +34,7 @@ def mock_plex_service():
             Artist(id="2", name="Artist 2", genres=["Pop"]),
         ]
         mock.machine_identifier = "test-machine"
+        mock.initialize.return_value = None  # Mock the initialize method
         yield mock
 
 

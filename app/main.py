@@ -4,6 +4,7 @@ Plexmuse API with initialization
 
 import logging
 import os
+from contextlib import asynccontextmanager
 from typing import List
 
 from dotenv import load_dotenv
@@ -13,7 +14,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.models import Artist, PlaylistRequest, PlaylistResponse, Track
-
 from .services.llm_service import LLMService
 from .services.plex_service import PlexService
 
@@ -22,10 +22,25 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+# Initialize services
+plex_service = PlexService(base_url=os.getenv("PLEX_BASE_URL"), token=os.getenv("PLEX_TOKEN"))
+llm_service = LLMService()
+
+
+@asynccontextmanager
+async def lifespan(app_context: FastAPI):  # pylint: disable=unused-argument
+    """Lifespan event handler for service initialization and cleanup"""
+    # Initialize services on startup
+    plex_service.initialize()
+    yield
+    # Cleanup on shutdown (if needed in the future)
+
+
 app = FastAPI(
     title="Plexmuse API",
     description="API for generating AI-powered playlists from your Plex music library",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -58,13 +73,6 @@ async def root():
     html_content = html_content.replace("</body>", f"{script_tag}</body>")
 
     return HTMLResponse(content=html_content)
-
-
-# Initialize services
-plex_service = PlexService(base_url=os.getenv("PLEX_BASE_URL"), token=os.getenv("PLEX_TOKEN"))
-plex_service.initialize()
-
-llm_service = LLMService()
 
 
 @app.get("/health")

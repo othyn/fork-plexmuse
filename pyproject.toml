@@ -18,3 +18,4 @@ addopts = "--cov=app --cov-report=term-missing --cov-report=html"
 testpaths = ["tests"]
 python_files = "test_*.py"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"  # Explicit scope for async fixtures
