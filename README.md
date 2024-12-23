@@ -31,13 +31,15 @@ Welcome to **Plexmuse**! This project leverages the power of AI to generate pers
     ```
 
 3. **Set up environment variables**:
-    Create a [.env](http://_vscodecontentref_/0) file in the root directory and add your API keys:
-    ```env
-    OPENAI_API_KEY=your_openai_key
-    ANTHROPIC_API_KEY=your_anthropic_key
-    PLEX_BASE_URL=your_plex_base_url
-    PLEX_TOKEN=your_plex_token
+    Create a .env file in the root directory and add your API keys:
+
+    ```sh
+    cp .env.example .env
     ```
+
+    To find `PLEX_BASE_URL` and `PLEX_TOKEN`, refer to the Plex support article: [Finding an Authentication Token (X-Plex-Token)](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
+
+    For setting up OpenAI, Anthropic, or other LLM keys, follow the instructions in the LiteLLM documentation: [LiteLLM - Set Keys](https://docs.litellm.ai/docs/set_keys).
 
 ### Running the Application
 
@@ -66,25 +68,28 @@ You can run the application using the Makefile or directly with Docker.
     docker compose up
     ```
 
-### Accessing the API Documentation
 
-Open your browser and navigate to `http://127.0.0.1:8000/docs` to explore the API endpoints.
+## Usage 📖
 
 ### User Interface
 
 Access the user interface at the root route `/`. This UI allows you to interact with the API, select playlist length, and is mobile-friendly.
 ![UI Screenshot](plexmuse-ui.png)
 
-## Usage 📖
 
-### Create Playlist Recommendations
+### API
 
 Send a POST request to `/recommendations` with the following JSON body:
 
 ```json
 {
     "prompt": "Chill vibes for a rainy day",
-    "model": "claude",
+    "model": "anthropic/claude-3-5-sonnet-latest",
     "min_tracks": 10,
     "max_tracks": 20
 }
+```
+
+### API Documentation
+
+Open your browser and navigate to `http://127.0.0.1:8000/docs` to explore the API endpoints.
