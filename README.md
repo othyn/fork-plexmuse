@@ -70,6 +70,11 @@ You can run the application using the Makefile or directly with Docker.
 
 Open your browser and navigate to `http://127.0.0.1:8000/docs` to explore the API endpoints.
 
+### User Interface
+
+Access the user interface at the root route `/`. This UI allows you to interact with the API, select playlist length, and is mobile-friendly.
+![UI Screenshot](plexmuse-ui.png)
+
 ## Usage 📖
 
 ### Create Playlist Recommendations
