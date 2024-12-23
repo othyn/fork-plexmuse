@@ -5,9 +5,9 @@ This module provides the LLMService class for generating playlist recommendation
 using language models.
 """
 
+import re
 import json
 import logging
-import os
 from typing import List
 
 from litellm import completion
@@ -17,26 +17,23 @@ from app.models import Artist
 logger = logging.getLogger(__name__)
 
 
+def clean_llm_response(content: str) -> str:
+    """Extract JSON from LLM response, handling markdown code blocks"""
+    # Check for ```json ... ``` pattern
+    json_block_match = re.search(r"```json\n(.*?)\n```", content, re.DOTALL)
+    if json_block_match:
+        return json_block_match.group(1)
+    return content.strip()
+
+
 class LLMService:
     """
     A service class for generating playlist recommendations using language models.
     """
 
-    def __init__(self, openai_key: str, anthropic_key: str | None = None):
-        os.environ["OPENAI_API_KEY"] = openai_key
-        if anthropic_key:
-            os.environ["ANTHROPIC_API_KEY"] = anthropic_key
-
-        self.model_mapping = {
-            "gpt-4": "gpt-4",
-            "claude": "anthropic/claude-3-5-sonnet-latest",
-        }
-
     def get_recommendations(self, prompt: str, artists: List[Artist], model: str = "gpt-4"):
         """Get playlist recommendations using LiteLLM"""
         try:
-            model_id = self.model_mapping.get(model, model)
-
             # Create context with available artists
             artist_context = "Available artists and their genres:\n" + "\n".join(
                 [f"{a.name} - {', '.join(a.genres)}" for a in artists if a.name]  # Skip empty names
@@ -50,7 +47,7 @@ class LLMService:
             Only include artists from the provided list."""
 
             response = completion(
-                model=model_id,
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {
@@ -58,11 +55,11 @@ class LLMService:
                         "content": f"Context: {artist_context}\n\nCreate a playlist for: {prompt}",
                     },
                 ],
-                max_tokens=1024,
                 temperature=0.7,
             )
 
-            result = json.loads(response.choices[0].message.content)
+            content = clean_llm_response(response.choices[0].message.content)
+            result = json.loads(content)
             return result.get("artists", [])  # Return just the artists list
 
         except Exception as e:
@@ -88,7 +85,7 @@ class LLMService:
             Select 10-15 artists that match the mood/theme, only from the provided list."""
 
             response = completion(
-                model=self.model_mapping.get(model, model),
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {
@@ -96,11 +93,10 @@ class LLMService:
                         "content": f"Context: {artist_context}\n\nCreate a playlist for: {prompt}",
                     },
                 ],
-                max_tokens=1024,
                 temperature=0.7,
             )
 
-            content = response.choices[0].message.content.strip()
+            content = clean_llm_response(response.choices[0].message.content)
             logger.debug("Raw LLM response: %s", content)
 
             try:
@@ -151,7 +147,7 @@ class LLMService:
             Do not add any explanations or additional text."""
 
             response = completion(
-                model=self.model_mapping.get(model, model),
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {
@@ -161,11 +157,10 @@ class LLMService:
                         """,
                     },
                 ],
-                max_tokens=2048,
                 temperature=0.7,
             )
 
-            content = response.choices[0].message.content.strip()
+            content = clean_llm_response(response.choices[0].message.content)
             result = json.loads(content)
             tracks_list = result.get("tracks", [])
 
@@ -188,12 +183,11 @@ class LLMService:
             """
 
             response = completion(
-                model=self.model_mapping.get(model, model),
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=30,
                 temperature=0.7,
             )
 

@@ -15,7 +15,7 @@ from app.models import Artist, PlaylistRequest, PlaylistResponse
 from .services.llm_service import LLMService
 from .services.plex_service import PlexService
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -39,7 +39,7 @@ app.add_middleware(
 plex_service = PlexService(base_url=os.getenv("PLEX_BASE_URL"), token=os.getenv("PLEX_TOKEN"))
 plex_service.initialize(app)  # Register startup event
 
-llm_service = LLMService(openai_key=os.getenv("OPENAI_API_KEY"), anthropic_key=os.getenv("ANTHROPIC_API_KEY"))
+llm_service = LLMService()
 
 
 @app.get("/health")
