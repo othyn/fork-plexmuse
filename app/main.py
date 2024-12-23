@@ -89,9 +89,12 @@ async def create_recommendations(request: PlaylistRequest):
             prompt=request.prompt, artist_tracks=artist_tracks, model=request.model
         )
 
-        # Step 4: Create the playlist
+        # Step 4: Generate playlist name
+        playlist_name = llm_service.generate_playlist_name(prompt=request.prompt, model=request.model)
+
+        # Step 5: Create the playlist
         playlist = plex_service.create_curated_playlist(
-            name=f"AI: {request.prompt[:50]}",
+            name=playlist_name,
             track_recommendations=track_recommendations,
         )
         playlist_items = list(playlist.items()) if hasattr(playlist, "items") else []

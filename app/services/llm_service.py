@@ -121,25 +121,24 @@ class LLMService:
             logger.error("Artist recommendation failed: %s", str(e))
             raise
 
-    def get_track_recommendations(self, prompt: str, artist_tracks: dict, model: str = "gpt-4"):
-        """Second step: Get specific tracks based on the prompt"""
+    def get_track_recommendations(
+        self, prompt: str, artist_tracks: dict, model: str = "gpt-4", min_tracks: int = 30, max_tracks: int = 50
+    ):
+        """Get track recommendations with simplified album context"""
         try:
-            # Format track information for LLM
-            tracks_context = "Available tracks by artist:\n"
+            # Format just album information for context
+            albums_context = "Available albums by artist:\n"
             for artist, albums in artist_tracks.items():
-                tracks_context += f"\n{artist}:\n"
+                albums_context += f"\n{artist}:\n"
                 for album in albums:
-                    tracks_context += f"Album: {album['name']}\n"
-                    for track in album["tracks"]:
-                        tracks_context += f"- {track['title']}\n"
+                    albums_context += f"- {album['name']} ({album['year']})\n"
 
             system_prompt = """You are a multilingual music curator creating a cohesive playlist.
             Your responses must ALWAYS be in English and contain ONLY a valid JSON object.
 
-            Based on the available tracks and the playlist theme, select specific songs that:
-            1. Flow well together
-            2. Match the requested mood/theme
-            3. Create a balanced representation of artists
+            Based on your knowledge of these artists' albums and the playlist theme,
+            recommend specific songs that would create a great playlist. You can recommend
+            any tracks you know exist on these albums - you don't need to see the track list.
 
             You must respond with ONLY a JSON object in this exact format:
             {
@@ -148,7 +147,8 @@ class LLMService:
                 ]
             }
 
-            Select 20-30 tracks total. Do not add any explanations or additional text."""
+            Select between {min_tracks} and {max_tracks} tracks total.
+            Do not add any explanations or additional text."""
 
             response = completion(
                 model=self.model_mapping.get(model, model),
@@ -156,7 +156,9 @@ class LLMService:
                     {"role": "system", "content": system_prompt},
                     {
                         "role": "user",
-                        "content": f"Context: {tracks_context}\n\nCreate a playlist for: {prompt}",
+                        "content": f"""Context: {albums_context}\n\n
+                        Create a playlist with {min_tracks}-{max_tracks} tracks for: {prompt}
+                        """,
                     },
                 ],
                 max_tokens=2048,
@@ -164,22 +166,41 @@ class LLMService:
             )
 
             content = response.choices[0].message.content.strip()
-            logger.debug("Raw LLM response for track selection: %s", content)
+            result = json.loads(content)
+            tracks_list = result.get("tracks", [])
 
-            try:
-                result = json.loads(content)
-                tracks_list = result.get("tracks", [])
-                if not tracks_list:
-                    raise ValueError("No tracks found in response")
+            if not tracks_list:
+                raise ValueError("No tracks found in response")
 
-                logger.info("Selected tracks: %s", tracks_list)
-                return tracks_list
-
-            except json.JSONDecodeError as e:
-                logger.error("Failed to parse JSON from track selection: %s", e)
-                logger.error("Received content: %s", content)
-                raise
+            logger.info("Selected tracks: %s", tracks_list)
+            return tracks_list
 
         except Exception as e:
             logger.error("Track recommendation failed: %s", str(e))
+            raise
+
+    def generate_playlist_name(self, prompt: str, model: str = "gpt-4") -> str:
+        """Generate a playlist name based on the prompt"""
+        try:
+            system_prompt = """
+            You are a creative assistant.
+            Generate a SINGLE catchy and relevant playlist name based on the following prompt.
+            """
+
+            response = completion(
+                model=self.model_mapping.get(model, model),
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=10,
+                temperature=0.7,
+            )
+
+            name = response.choices[0].message.content.strip()
+            logger.info("Generated playlist name: %s", name)
+            return name
+
+        except Exception as e:
+            logger.error("Failed to generate playlist name: %s", str(e))
             raise
