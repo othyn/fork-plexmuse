@@ -5,9 +5,9 @@ This module provides the LLMService class for generating playlist recommendation
 using language models.
 """
 
-import re
 import json
 import logging
+import re
 from typing import List
 
 from litellm import completion
@@ -30,41 +30,6 @@ class LLMService:
     """
     A service class for generating playlist recommendations using language models.
     """
-
-    def get_recommendations(self, prompt: str, artists: List[Artist], model: str = "gpt-4"):
-        """Get playlist recommendations using LiteLLM"""
-        try:
-            # Create context with available artists
-            artist_context = "Available artists and their genres:\n" + "\n".join(
-                [f"{a.name} - {', '.join(a.genres)}" for a in artists if a.name]  # Skip empty names
-            )
-
-            system_prompt = """You are a music curator helping to create playlists.
-            Analyze the available artists and their genres,
-            then select the most appropriate ones for the requested playlist.
-            Return your response as a JSON object with:
-            - 'artists': array of 15-20 artist names from the provided list.
-            Only include artists from the provided list."""
-
-            response = completion(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {
-                        "role": "user",
-                        "content": f"Context: {artist_context}\n\nCreate a playlist for: {prompt}",
-                    },
-                ],
-                temperature=0.7,
-            )
-
-            content = clean_llm_response(response.choices[0].message.content)
-            result = json.loads(content)
-            return result.get("artists", [])  # Return just the artists list
-
-        except Exception as e:
-            logger.error("AI recommendation failed: %s", str(e))
-            raise
 
     def get_artist_recommendations(self, prompt: str, artists: List[Artist], model: str = "gpt-4"):
         """First step: Get relevant artists based on the prompt"""
@@ -119,7 +84,7 @@ class LLMService:
 
     def get_track_recommendations(
         self, prompt: str, artist_tracks: dict, model: str = "gpt-4", min_tracks: int = 30, max_tracks: int = 50
-    ):
+    ):  # pylint: disable=too-many-arguments,too-many-locals,too-many-positional-arguments
         """Get track recommendations with simplified album context"""
         try:
             # Format just album information for context

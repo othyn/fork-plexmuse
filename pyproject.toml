@@ -12,3 +12,9 @@ exclude = [".venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache"]
 
 [tool.pylint]
 max-line-length = 120
+
+[tool.pytest.ini_options]
+addopts = "--cov=app --cov-report=term-missing --cov-report=html"
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"

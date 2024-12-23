@@ -8,9 +8,9 @@ from typing import List
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.models import Artist, PlaylistRequest, PlaylistResponse, Track
 
@@ -62,7 +62,7 @@ async def root():
 
 # Initialize services
 plex_service = PlexService(base_url=os.getenv("PLEX_BASE_URL"), token=os.getenv("PLEX_TOKEN"))
-plex_service.initialize(app)
+plex_service.initialize()
 
 llm_service = LLMService()
 

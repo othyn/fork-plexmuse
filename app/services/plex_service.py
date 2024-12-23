@@ -3,10 +3,11 @@ Plex Service with artist caching and optimized album loading.
 """
 
 import logging
-from typing import List, Dict, Optional
 from difflib import SequenceMatcher
-from fastapi import FastAPI
+from typing import Dict, List, Optional
+
 from plexapi.server import PlexServer
+
 from app.models import Artist
 
 logger = logging.getLogger(__name__)
@@ -19,9 +20,10 @@ def normalize_title(title: str) -> str:
     # Remove common suffixes in parentheses
     if "(" in title:
         title = title.split("(")[0].strip()
-    # Remove special characters and extra whitespace
-    title = title.replace("'", "").replace(",", "").replace(".", "")
-    return " ".join(title.split())
+    # Remove special characters but preserve spaces
+    title = title.replace("'", "").replace(",", " ").replace(".", " ")
+    # Normalize whitespace
+    return " ".join(word for word in title.split() if word)
 
 
 def find_best_track_match(tracks, target_title, threshold=0.85):
@@ -77,31 +79,28 @@ class PlexService:
         """Get the number of artists in the cache"""
         return len(self._artists_cache)
 
-    def initialize(self, app: FastAPI):
-        """Initialize artist cache on startup"""
+    def initialize(self):
+        """Initialize artist cache"""
+        logger.info("Initializing PlexService artist cache...")
+        try:
+            self._server = PlexServer(self.base_url, self.token)
+            self.machine_identifier = self._server.machineIdentifier
 
-        @app.on_event("startup")
-        async def startup_event():
-            logger.info("Initializing PlexService artist cache...")
-            try:
-                self._server = PlexServer(self.base_url, self.token)
-                self.machine_identifier = self._server.machineIdentifier
+            self._music_library = self._server.library.section("Music")
 
-                self._music_library = self._server.library.section("Music")
+            # Load all artists
+            artists = self._music_library.search(libtype="artist")
+            for artist in artists:
+                artist_id = str(artist.ratingKey)
+                self._artists_cache[artist_id] = Artist(
+                    id=artist_id, name=artist.title, genres=[genre.tag for genre in getattr(artist, "genres", [])]
+                )
 
-                # Load all artists
-                artists = self._music_library.search(libtype="artist")
-                for artist in artists:
-                    artist_id = str(artist.ratingKey)
-                    self._artists_cache[artist_id] = Artist(
-                        id=artist_id, name=artist.title, genres=[genre.tag for genre in getattr(artist, "genres", [])]
-                    )
+            logger.info("Cached %d artists", len(self._artists_cache))
 
-                logger.info("Cached %d artists", len(self._artists_cache))
-
-            except Exception as e:
-                logger.error("Failed to initialize Plex cache: %s", str(e))
-                raise
+        except Exception as e:
+            logger.error("Failed to initialize Plex cache: %s", str(e))
+            raise
 
     def get_all_artists(self) -> List[Artist]:
         """Get all artists from cache"""
@@ -140,7 +139,9 @@ class PlexService:
 
         return result
 
-    def create_curated_playlist(self, name: str, track_recommendations: List[dict]):
+    def create_curated_playlist(
+        self, name: str, track_recommendations: List[dict]
+    ):  # pylint: disable=too-many-locals,too-many-branches
         """Create a playlist with fuzzy track matching"""
         if not self._server:
             self._server = PlexServer(self.base_url, self.token)
