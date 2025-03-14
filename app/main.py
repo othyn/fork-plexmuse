@@ -117,6 +117,8 @@ async def create_recommendations(request: PlaylistRequest):
         playlist = plex_service.create_curated_playlist(
             name=playlist_name,
             track_recommendations=track_recommendations,
+            prompt=request.prompt,
+            model=request.model,
         )
         return PlaylistResponse(
             name=playlist.title,
