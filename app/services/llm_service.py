@@ -108,7 +108,7 @@ class LLMService:
                 ]
             }
 
-            Select between {min_tracks} and {max_tracks} tracks total.
+            You MUST select between {min_tracks} and {max_tracks} tracks in total.
             Do not add any explanations or additional text."""
 
             response = completion(

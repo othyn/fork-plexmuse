@@ -5,6 +5,7 @@ Welcome to **Plexmuse**! This project leverages the power of AI to generate pers
 ## Features ✨
 
 - **AI-Powered Recommendations**: Generate playlists using advanced language models like GPT-4 and Claude.
+- **Model Selection**: Choose between GPT-4 (higher quality) or GPT-3.5 Turbo (more affordable) for cost optimization.
 - **Seamless Plex Integration**: Fetch and manage your music library directly from Plex.
 - **Customizable Playlists**: Tailor your playlists with specific prompts and models.
 
