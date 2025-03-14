@@ -20,12 +20,14 @@ Welcome to **Plexmuse**! This project leverages the power of AI to generate pers
 ### Installation
 
 1. **Clone the repository**:
+
     ```sh
     git clone git@github.com:LubergAlexander/plexmuse.git
     cd plexmuse
     ```
 
 2. **Setup**:
+
     ```sh
     make all
     ```
@@ -48,26 +50,24 @@ You can run the application using the Makefile or directly with Docker.
 #### Using the Makefile
 
 1. **Set up and run the application**:
+
     ```sh
     make run
-    ```
-2. **Start**:
-    ```sh
-    make start
     ```
 
 #### Using Docker
 
 1. **Build the Docker image**:
+
     ```sh
     docker compose build
     ```
 
 2. **Start the Docker container**:
+
     ```sh
     docker compose up
     ```
-
 
 ## Usage 📖
 
@@ -75,7 +75,6 @@ You can run the application using the Makefile or directly with Docker.
 
 Access the user interface at the root route `/`. This UI allows you to interact with the API, select playlist length, and is mobile-friendly.
 ![UI Screenshot](plexmuse-ui.png)
-
 
 ### API
 
