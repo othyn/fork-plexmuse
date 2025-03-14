@@ -70,7 +70,7 @@ class PlexService:
         self.token = token
         self._server: Optional[PlexServer] = None
         self.machine_identifier: Optional[str] = None
-        self._music_library = None
+        self._music_libraries = []
 
         # Only cache artists
         self._artists_cache: Dict[str, Artist] = {}  # key: artist_id -> Artist
@@ -86,17 +86,33 @@ class PlexService:
             self._server = PlexServer(self.base_url, self.token)
             self.machine_identifier = self._server.machineIdentifier
 
-            self._music_library = self._server.library.section("Music")
+            # Find all music libraries instead of assuming one called "Music"
+            self._music_libraries = []
+            for section in self._server.library.sections():
+                if section.type == "artist":
+                    self._music_libraries.append(section)
+                    logger.info(f"Found music library: {section.title}")
 
-            # Load all artists
-            artists = self._music_library.search(libtype="artist")
-            for artist in artists:
-                artist_id = str(artist.ratingKey)
-                self._artists_cache[artist_id] = Artist(
-                    id=artist_id, name=artist.title, genres=[genre.tag for genre in getattr(artist, "genres", [])]
-                )
+            if not self._music_libraries:
+                logger.warning("No music libraries found on the Plex server")
+                return
 
-            logger.info("Cached %d artists", len(self._artists_cache))
+            # Load all artists from all music libraries
+            for library in self._music_libraries:
+                artists = library.search(libtype="artist")
+                for artist in artists:
+                    artist_id = str(artist.ratingKey)
+                    # Only add if not already in cache (avoid duplicates across libraries)
+                    if artist_id not in self._artists_cache:
+                        self._artists_cache[artist_id] = Artist(
+                            id=artist_id,
+                            name=artist.title,
+                            genres=[genre.tag for genre in getattr(artist, "genres", [])],
+                        )
+
+            logger.info(
+                "Cached %d artists from %d music libraries", len(self._artists_cache), len(self._music_libraries)
+            )
 
         except Exception as e:
             logger.error("Failed to initialize Plex cache: %s", str(e))
@@ -120,9 +136,13 @@ class PlexService:
             for artist in self._artists_cache.values():
                 if artist.name.lower() == artist_name.lower():
                     # Found in cache, now get the Plex object
-                    matches = self._music_library.search(artist.name, libtype="artist")
-                    if matches:
-                        artist_found = matches[0]
+                    # Search across all music libraries
+                    for library in self._music_libraries:
+                        matches = library.search(artist.name, libtype="artist")
+                        if matches:
+                            artist_found = matches[0]
+                            break
+                    if artist_found:
                         break
 
             if artist_found:
@@ -154,7 +174,14 @@ class PlexService:
 
         # Process each artist's tracks in bulk
         for artist_name, track_titles in artist_tracks.items():
-            artists = self._music_library.search(artist_name, libtype="artist")
+            # Search for artist across all music libraries
+            artists = []
+            for library in self._music_libraries:
+                found_artists = library.search(artist_name, libtype="artist")
+                if found_artists:
+                    artists.append(found_artists[0])
+                    break  # Found in one library, no need to check others
+
             if not artists:
                 logger.warning("Artist not found: %s", artist_name)
                 continue
@@ -172,8 +199,12 @@ class PlexService:
                     logger.debug("Matched '%s' to '%s' (score: %.2f)", title, track.title, score)
                     matched_tracks.append(track)
                 else:
-                    # If no match found for artist, try global search
-                    global_tracks = self._music_library.search(title, libtype="track")
+                    # If no match found for artist, try global search across all music libraries
+                    global_tracks = []
+                    for library in self._music_libraries:
+                        found_tracks = library.search(title, libtype="track")
+                        global_tracks.extend(found_tracks)
+
                     if global_tracks:
                         track, score = find_best_track_match(global_tracks, title, threshold=0.75)
                         if track and track.artist().title.lower() == artist_name.lower():

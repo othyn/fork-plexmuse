@@ -56,7 +56,13 @@ def mock_plex_server():
 
         # Create mock library section
         mock_library = Mock()
-        mock_server.return_value.library.section.return_value = mock_library
+
+        # Mock library sections for multiple music libraries
+        mock_section = Mock(type="artist", title="Mock Music Library")
+        mock_server.return_value.library.sections.return_value = [mock_section]
+
+        # Make the mock_section searchable
+        mock_section.search = mock_library.search
 
         yield mock_server, mock_library
 
@@ -70,7 +76,7 @@ def plex_service(mock_plex_server):  # pylint: disable=unused-argument
 
 def test_plex_service_initialization(plex_service, mock_plex_server):  # pylint: disable=unused-argument
     """Test PlexService initialization."""
-    _, mock_library = mock_plex_server
+    mock_server, mock_library = mock_plex_server
 
     # Mock artists for initialization
     artist1 = Mock(ratingKey="1", title="Artist1")
@@ -84,6 +90,7 @@ def test_plex_service_initialization(plex_service, mock_plex_server):  # pylint:
     mock_genre3 = Mock(tag="Pop")
     artist2.genres.append(mock_genre3)
 
+    # Set up the mock library section to return artists
     mock_library.search.return_value = [artist1, artist2]
 
     # Initialize service
@@ -124,9 +131,13 @@ def test_get_artists_albums_bulk(plex_service, mock_plex_server):
     # Setup mock search results
     mock_library.search.return_value = [artist1]
 
-    # Initialize plex service
+    # Initialize plex service with mock music libraries
     plex_service.initialize()
-    plex_service._music_library = mock_library
+
+    # Create a mock music library and add it to the service
+    mock_music_library = Mock()
+    mock_music_library.search = mock_library.search
+    plex_service._music_libraries = [mock_music_library]
     plex_service._server = mock_server.return_value
 
     # Add artist to cache
@@ -177,7 +188,11 @@ def test_create_curated_playlist(plex_service, mock_plex_server):
 
     # Initialize plex service
     plex_service.initialize()
-    plex_service._music_library = mock_library
+
+    # Create a mock music library and add it to the service
+    mock_music_library = Mock()
+    mock_music_library.search = mock_library.search
+    plex_service._music_libraries = [mock_music_library]
     plex_service._server = mock_server.return_value
 
     # Test playlist creation
@@ -198,7 +213,11 @@ def test_create_curated_playlist_no_matches(plex_service, mock_plex_server):
 
     # Initialize plex service
     plex_service.initialize()
-    plex_service._music_library = mock_library
+
+    # Create a mock music library and add it to the service
+    mock_music_library = Mock()
+    mock_music_library.search = mock_library.search
+    plex_service._music_libraries = [mock_music_library]
     plex_service._server = mock_server.return_value
 
     # Test playlist creation with no matches
@@ -242,7 +261,11 @@ def test_fuzzy_track_matching(plex_service, mock_plex_server):
 
     # Initialize plex service
     plex_service.initialize()
-    plex_service._music_library = mock_library
+
+    # Create a mock music library and add it to the service
+    mock_music_library = Mock()
+    mock_music_library.search = mock_library.search
+    plex_service._music_libraries = [mock_music_library]
     plex_service._server = mock_server.return_value
 
     # Test playlist creation with fuzzy matching
