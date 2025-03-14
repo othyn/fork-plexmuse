@@ -2,9 +2,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [master]
+    branches: ['*']
   pull_request:
-    branches: [master]
+    branches: ['*']
 
 env:
   REGISTRY: ghcr.io
@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.13"
+          python-version: '3.13'
 
       - name: Install dependencies
         run: make dev-requirements
@@ -30,8 +30,6 @@ jobs:
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
-    # Only run this job on master branch pushes, not on PRs
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     permissions:
       contents: read
       packages: write
@@ -46,7 +44,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for Docker
+      - name: Set up Docker tags
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -57,7 +55,8 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            # Only add latest tag for master branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
