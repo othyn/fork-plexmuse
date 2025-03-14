@@ -69,6 +69,56 @@ You can run the application using the Makefile or directly with Docker.
     docker compose up
     ```
 
+#### Using the Published Docker Image
+
+You can also use the pre-built Docker image from GitHub Container Registry, which is automatically built and published on each push to the master branch:
+
+1. **Pull the Docker image**:
+
+    ```sh
+    docker pull ghcr.io/lubergalexander/plexmuse:latest
+    ```
+
+2. **Run the Docker container**:
+
+    ```sh
+    docker run -p 8000:8000 \
+      -e PLEX_BASE_URL=your_plex_url \
+      -e PLEX_TOKEN=your_plex_token \
+      -e OPENAI_API_KEY=your_openai_key \
+      ghcr.io/lubergalexander/plexmuse:latest
+    ```
+
+3. **Using Docker Compose**:
+
+    Create a `docker-compose.yml` file:
+
+    ```yaml
+    version: '3'
+    services:
+      plexmuse:
+        image: ghcr.io/lubergalexander/plexmuse:latest
+        ports:
+          - "8000:8000"
+        environment:
+          - PLEX_BASE_URL=your_plex_url
+          - PLEX_TOKEN=your_plex_token
+          - OPENAI_API_KEY=your_openai_key
+          # Add other environment variables as needed
+        restart: unless-stopped
+    ```
+
+    Then run:
+
+    ```sh
+    docker compose up -d
+    ```
+
+4. **Available Tags**:
+
+   - `latest`: The most recent build from the master branch
+   - SHA tags: Each image is also tagged with the Git commit SHA
+
 ## Usage 📖
 
 ### User Interface
