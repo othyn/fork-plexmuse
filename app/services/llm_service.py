@@ -94,7 +94,7 @@ class LLMService:
                 for album in albums:
                     albums_context += f"- {album['name']} ({album['year']})\n"
 
-            system_prompt = """You are a multilingual music curator creating a cohesive playlist.
+            system_prompt = f"""You are a multilingual music curator creating a cohesive playlist.
             Your responses must ALWAYS be in English and contain ONLY a valid JSON object.
 
             Based on your knowledge of these artists' albums and the playlist theme,
@@ -102,13 +102,15 @@ class LLMService:
             any tracks you know exist on these albums - you don't need to see the track list.
 
             You must respond with ONLY a JSON object in this exact format:
-            {
+            {{
                 "tracks": [
-                    {"artist": "artist name", "title": "track title"}
+                    {{"artist": "artist name", "title": "track title"}}
                 ]
-            }
+            }}
 
             You MUST select between {min_tracks} and {max_tracks} tracks in total.
+            Ensure variety by selecting different tracks from different albums and artists.
+            Avoid repeating the same tracks or selecting too many tracks from the same album.
             Do not add any explanations or additional text."""
 
             response = completion(
@@ -122,7 +124,7 @@ class LLMService:
                         """,
                     },
                 ],
-                temperature=0.7,
+                temperature=0.8,
             )
 
             content = clean_llm_response(response.choices[0].message.content)
